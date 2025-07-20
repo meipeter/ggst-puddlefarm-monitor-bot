@@ -1,11 +1,10 @@
 mod concurrent_test;
 mod database;
-mod simple_comparison;
+
 use anyhow::Result;
 use concurrent_test::{benchmark_concurrent_operations, demo_concurrent_usage};
 use database::calls::ping_player;
 use database::table::{insert_follow_table, query_follow_table, remove_all_follow_table};
-use simple_comparison::{run_all_demos, show_code_examples};
 
 #[tokio::main]
 async fn main() -> Result<()> {
