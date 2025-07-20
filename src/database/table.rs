@@ -64,7 +64,7 @@ pub fn remove_all_follow_table(followee: Uid) -> Result<()> {
 }
 
 // PLAYER_MATCHCOUNT_TABLE 操作函数 (一对一关系，使用 open_table)
-pub fn get_player_matchcount(uid: Uid) -> Result<Option<MatchCount>> {
+pub fn get_player_matchcount_table(uid: Uid) -> Result<Option<MatchCount>> {
     let read_txn = DATABASE.begin_read()?;
     let table = read_txn.open_table(PLAYER_MATCHCOUNT_TABLE)?;
     let result = table.get(uid)?;
@@ -81,7 +81,7 @@ pub fn get_player_matchcount(uid: Uid) -> Result<Option<MatchCount>> {
     }
 }
 
-pub fn insert_player_matchcount(uid: Uid, match_count: MatchCount) -> Result<()> {
+pub fn insert_player_matchcount_table(uid: Uid, match_count: MatchCount) -> Result<()> {
     let wr_txn = DATABASE.begin_write()?;
     {
         let mut table = wr_txn.open_table(PLAYER_MATCHCOUNT_TABLE)?;
@@ -92,7 +92,7 @@ pub fn insert_player_matchcount(uid: Uid, match_count: MatchCount) -> Result<()>
     Ok(())
 }
 
-pub fn update_player_matchcount(uid: Uid, match_count: MatchCount) -> Result<()> {
+pub fn update_player_matchcount_table(uid: Uid, match_count: MatchCount) -> Result<()> {
     let wr_txn = DATABASE.begin_write()?;
     {
         let mut table = wr_txn.open_table(PLAYER_MATCHCOUNT_TABLE)?;
@@ -103,7 +103,7 @@ pub fn update_player_matchcount(uid: Uid, match_count: MatchCount) -> Result<()>
     Ok(())
 }
 
-pub fn remove_player_matchcount(uid: Uid) -> Result<bool> {
+pub fn remove_player_matchcount_table(uid: Uid) -> Result<bool> {
     let wr_txn = DATABASE.begin_write()?;
     let removed = {
         let mut table = wr_txn.open_table(PLAYER_MATCHCOUNT_TABLE)?;
