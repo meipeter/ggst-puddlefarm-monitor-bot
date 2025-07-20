@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+env_logger = "0.11.8"
+log = "0.4.27"
 puddle-farm-api-client_openapi_client = "1.0.0"
 redb = { version = "2.6.0", features = ["logging"] }
 tokio = { version = "1.46.1", features = ["full"] }

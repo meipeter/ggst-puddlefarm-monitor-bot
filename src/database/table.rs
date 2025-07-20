@@ -1,3 +1,4 @@
+use log::trace;
 #[allow(unused_variables, unused_imports, unused)]
 use redb::{
     Database, Error, MultimapTableDefinition, ReadOnlyMultimapTable, ReadableMultimapTable,
@@ -29,7 +30,7 @@ impl Db {
             .get(uid)?
             .map(|v| v.map(|g| g.value()))
             .collect::<Result<Vec<_>, _>>()?;
-
+        trace!("query player {},followed by {:?}", uid, follower_list);
         Ok(follower_list)
     }
     pub fn insert_follow_table(&self, followee: Uid, follower: Uid) -> Result<(), Error> {
@@ -38,6 +39,25 @@ impl Db {
             .open_multimap_table(FOLLOWERS_TABLE)?
             .insert(followee, follower)?;
         wr_txn.commit()?;
+        trace!("insert player {},followed by {:?}", followee, follower);
+        Ok(())
+    }
+    pub fn remove_follow_table(&self, followee: Uid, follower: Uid) -> Result<(), Error> {
+        let wr_txn = self.database.begin_write()?;
+        wr_txn
+            .open_multimap_table(FOLLOWERS_TABLE)?
+            .remove(followee, follower)?;
+        wr_txn.commit()?;
+        trace!("remove follower {:?} following {:?}", follower, followee);
+        Ok(())
+    }
+    pub fn remove_all_follow_table(&self, followee: Uid) -> Result<(), Error> {
+        let wr_txn = self.database.begin_write()?;
+        wr_txn
+            .open_multimap_table(FOLLOWERS_TABLE)?
+            .remove_all(followee)?;
+        wr_txn.commit()?;
+        trace!("remove all follower {:?}", followee);
         Ok(())
     }
 }
