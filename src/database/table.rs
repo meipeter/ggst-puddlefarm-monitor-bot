@@ -1,6 +1,9 @@
 use anyhow::Result;
+use bincode::config;
 use lazy_static::lazy_static;
 use log::trace;
+use puddle_farm_api_client_openapi_client::models::PlayerResponse;
+
 #[allow(unused_variables, unused_imports, unused, unused)]
 use redb::{
     Database, MultimapTableDefinition, ReadOnlyMultimapTable, ReadableMultimapTable, ReadableTable,
@@ -15,6 +18,8 @@ pub const PLAYER_MATCHCOUNT_TABLE: TableDefinition<Uid, MatchCount> =
     TableDefinition::new("player_matchcount_table");
 pub const PING_STATUS_TABLE: TableDefinition<Uid, MatchCount> =
     TableDefinition::new("ping_status_table");
+pub const PLAYER_DATA_TABLE: TableDefinition<Uid, Vec<u8>> =
+    TableDefinition::new("player_data_table");
 
 // 使用 lazy_static 创建全局数据库实例
 lazy_static! {
@@ -151,4 +156,106 @@ pub fn batch_update_player_matchcounts(updates: &[(Uid, MatchCount)]) -> Result<
 // 获取数据库实例的函数（如果需要直接访问）
 pub fn get_database() -> &'static Arc<Database> {
     &DATABASE
+}
+
+// PLAYER_DATA_TABLE 操作函数
+pub fn get_player_data(uid: Uid) -> Result<Option<PlayerResponse>> {
+    let read_txn = DATABASE.begin_read()?;
+    let table = read_txn.open_table(PLAYER_DATA_TABLE)?;
+    let result = table.get(uid)?;
+
+    match result {
+        Some(access_guard) => {
+            let serialized_data = access_guard.value();
+            let player_response = deserialize_player_response(&serialized_data)?;
+            trace!("get player {} data", uid);
+            Ok(Some(player_response))
+        }
+        None => {
+            trace!("player {} data not found", uid);
+            Ok(None)
+        }
+    }
+}
+
+pub fn insert_player_data(uid: Uid, player: &PlayerResponse) -> Result<()> {
+    let serialized_data = serialize_player_response(player)?;
+    let wr_txn = DATABASE.begin_write()?;
+    {
+        let mut table = wr_txn.open_table(PLAYER_DATA_TABLE)?;
+        table.insert(uid, serialized_data)?;
+    }
+    wr_txn.commit()?;
+    trace!("insert player {} data", uid);
+    Ok(())
+}
+
+pub fn update_player_data(uid: Uid, player: &PlayerResponse) -> Result<()> {
+    let serialized_data = serialize_player_response(player)?;
+    let wr_txn = DATABASE.begin_write()?;
+    {
+        let mut table = wr_txn.open_table(PLAYER_DATA_TABLE)?;
+        table.insert(uid, serialized_data)?; // insert 会覆盖现有值
+    }
+    wr_txn.commit()?;
+    trace!("update player {} data", uid);
+    Ok(())
+}
+
+pub fn remove_player_data(uid: Uid) -> Result<bool> {
+    let wr_txn = DATABASE.begin_write()?;
+    let removed = {
+        let mut table = wr_txn.open_table(PLAYER_DATA_TABLE)?;
+        table.remove(uid)?.is_some()
+    };
+    wr_txn.commit()?;
+    if removed {
+        trace!("remove player {} data", uid);
+    } else {
+        trace!("player {} data not found for removal", uid);
+    }
+    Ok(removed)
+}
+
+// 获取所有玩家数据
+pub fn get_all_player_data() -> Result<Vec<(Uid, PlayerResponse)>> {
+    let read_txn = DATABASE.begin_read()?;
+    let table = read_txn.open_table(PLAYER_DATA_TABLE)?;
+    let mut results = Vec::new();
+
+    for result in table.iter()? {
+        let (uid, serialized_data) = result?;
+        let player_response = deserialize_player_response(&serialized_data.value())?;
+        results.push((uid.value(), player_response));
+    }
+
+    trace!("retrieved {} player data records", results.len());
+    Ok(results)
+}
+
+// 批量插入/更新玩家数据
+pub fn batch_update_player_data(updates: &[(Uid, &PlayerResponse)]) -> Result<()> {
+    let wr_txn = DATABASE.begin_write()?;
+    {
+        let mut table = wr_txn.open_table(PLAYER_DATA_TABLE)?;
+        for &(uid, player) in updates {
+            let serialized_data = serialize_player_response(player)?;
+            table.insert(uid, serialized_data)?;
+        }
+    }
+    wr_txn.commit()?;
+    trace!("batch updated {} player data records", updates.len());
+    Ok(())
+}
+// PlayerResponse 序列化/反序列化函数
+pub fn serialize_player_response(player: &PlayerResponse) -> Result<Vec<u8>> {
+    let config = config::standard();
+    bincode::serde::encode_to_vec(player, config).map_err(|e| anyhow::anyhow!("序列化失败: {}", e))
+}
+
+pub fn deserialize_player_response(data: &[u8]) -> Result<PlayerResponse> {
+    let config = config::standard();
+    let (player, _): (PlayerResponse, usize) = bincode::serde::decode_from_slice(data, config)
+        .map_err(|e| anyhow::anyhow!("反序列化失败: {}", e))?;
+    Ok(player)
 }
